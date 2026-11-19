@@ -4,54 +4,77 @@ import { CurrentUserAvatar } from './Avatar';
 
 /**
  * ProfileDropdown – premium redesigned dropdown under the avatar in the Navbar.
- * Features: user card, My Profile / Account Settings links, sign-out confirmation modal.
- * Closes on outside click or Escape key.
+ *
+ * BUG FIX NOTES:
+ * - The sign-out modal is rendered via a React Portal (createPortal) so it
+ *   lives outside the dropdown DOM, but we track it with `modalOpen` state so
+ *   the outside-click guard never closes the dropdown while the modal is open.
+ * - Buttons use onMouseDown + e.stopPropagation() to prevent the document
+ *   mousedown listener from firing before the click is processed.
+ * - Navigation (onNavigate) is called AFTER a small setTimeout so the dropdown
+ *   unmounts cleanly before the parent re-renders the new page.
  */
+import { createPortal } from 'react-dom';
+
 export default function ProfileDropdown({ onClose, onNavigate }) {
   const { user, profile, signOut } = useAuth();
   const ref = useRef(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  // Close on outside click
+  // ── Outside-click: close ONLY when modal is not open ──────────────────────
   useEffect(() => {
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) onClose();
+      // Don't close the dropdown if the sign-out modal is showing
+      if (showSignOutConfirm) return;
+      if (ref.current && !ref.current.contains(e.target)) {
+        onClose();
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, showSignOutConfirm]);
 
-  // Close on Escape key
+  // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (showSignOutConfirm) {
+          setShowSignOutConfirm(false);
+        } else {
+          onClose();
+        }
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [onClose, showSignOutConfirm]);
 
+  // ── Navigation: close dropdown then navigate ───────────────────────────────
   const go = (page) => {
     onClose();
-    onNavigate(page);
+    // Small delay so the dropdown unmounts before the new page renders
+    setTimeout(() => onNavigate(page), 0);
   };
 
+  // ── Sign-out flow ─────────────────────────────────────────────────────────
   const handleConfirmSignOut = async () => {
     setSigningOut(true);
     try {
       await signOut();
     } finally {
       setSigningOut(false);
+      setShowSignOutConfirm(false);
       onClose();
     }
   };
 
-  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || 'Campus User';
+  // ── Display values ────────────────────────────────────────────────────────
+  const displayName  = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || 'Campus User';
   const displayEmail = user?.email || profile?.email || '';
-  const displayRole = profile?.role || 'student';
-  const isGoogle = user?.app_metadata?.provider === 'google';
+  const displayRole  = profile?.role || 'student';
+  const isGoogle     = user?.app_metadata?.provider === 'google';
 
-  // Get initials for fallback avatar
   const initials = displayName
     .split(' ')
     .map(w => w[0])
@@ -61,15 +84,17 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
 
   return (
     <>
-      {/* Dropdown panel */}
+      {/* ── Dropdown panel ─────────────────────────────────────────────────── */}
       <div
         ref={ref}
         className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-campus-border z-50 overflow-hidden animate-fade-in"
         style={{ boxShadow: '0 8px 32px rgba(15,34,64,0.15), 0 2px 8px rgba(0,0,0,0.08)' }}
+        // Stop mousedown from bubbling to document so the outside-click handler
+        // never treats a click *inside* the dropdown as an outside click.
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* ── User Card Header ─────────────────────────────────── */}
         <div className="relative px-5 pt-5 pb-4 bg-gradient-to-br from-campus-navy via-[#1a3560] to-[#0f2240] overflow-hidden">
-          {/* Decorative circles */}
           <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/5 pointer-events-none" />
           <div className="absolute -bottom-4 -left-4 w-20 h-20 rounded-full bg-campus-blue/10 pointer-events-none" />
 
@@ -79,7 +104,6 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
               <CurrentUserAvatar size="lg" />
               {isGoogle && (
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white flex items-center justify-center shadow">
-                  {/* Google G */}
                   <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -113,8 +137,10 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
 
         {/* ── Menu Items ───────────────────────────────────────── */}
         <div className="p-2">
+
           {/* My Profile */}
           <button
+            type="button"
             onClick={() => go('my-profile')}
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-campus-text hover:bg-blue-50 hover:text-campus-blue transition-all group"
           >
@@ -135,6 +161,7 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
 
           {/* Account Settings */}
           <button
+            type="button"
             onClick={() => go('account-settings')}
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-campus-text hover:bg-slate-50 hover:text-campus-navy transition-all group"
           >
@@ -147,7 +174,7 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
             </span>
             <div className="text-left min-w-0">
               <p className="font-semibold text-sm">Account Settings</p>
-              <p className="text-[11px] text-campus-muted">Password, security & preferences</p>
+              <p className="text-[11px] text-campus-muted">Password, security &amp; preferences</p>
             </div>
             <svg className="w-3.5 h-3.5 text-campus-muted ml-auto group-hover:text-campus-navy transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -159,6 +186,7 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
 
           {/* Sign Out */}
           <button
+            type="button"
             onClick={() => setShowSignOutConfirm(true)}
             className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all group"
           >
@@ -183,11 +211,12 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
         </div>
       </div>
 
-      {/* ── Sign Out Confirmation Modal ─────────────────────── */}
-      {showSignOutConfirm && (
+      {/* ── Sign Out Confirmation Modal (Portal → renders at document.body) ── */}
+      {showSignOutConfirm && createPortal(
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(15,34,64,0.5)', backdropFilter: 'blur(4px)' }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(15,34,64,0.55)', backdropFilter: 'blur(4px)' }}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => { if (e.target === e.currentTarget) setShowSignOutConfirm(false); }}
         >
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-fade-in">
@@ -208,6 +237,7 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
             {/* Modal actions */}
             <div className="px-6 pb-6 flex gap-3">
               <button
+                type="button"
                 onClick={() => setShowSignOutConfirm(false)}
                 disabled={signingOut}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border border-campus-border text-campus-navy hover:bg-slate-50 transition-colors disabled:opacity-50"
@@ -215,6 +245,7 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleConfirmSignOut}
                 disabled={signingOut}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
@@ -233,7 +264,8 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
