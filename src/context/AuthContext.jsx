@@ -229,11 +229,24 @@ export function AuthProvider({ children }) {
 
   // ── Sign Out ──────────────────────────────────────────────────────────────
   const signOut = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.warn('Supabase signOut error/warning:', err);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase.auth.token'))) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {}
     }
-    setUser(null);
-    setProfile(null);
   };
 
   // ── Password Reset ────────────────────────────────────────────────────────

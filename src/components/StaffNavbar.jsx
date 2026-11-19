@@ -1,6 +1,8 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function StaffNavbar({ staffTab, setStaffTab, onExitToStudent, pendingEscalationsCount = 0 }) {
+  const { signOut } = useAuth();
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'inbox', label: 'Staff Inbox', icon: '📥', badge: pendingEscalationsCount },
@@ -76,6 +78,17 @@ export default function StaffNavbar({ staffTab, setStaffTab, onExitToStudent, pe
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
               <span>Back to Student View</span>
+            </button>
+
+            <button
+              onClick={() => signOut()}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600/80 hover:bg-red-600 text-white transition-all shadow-xs"
+              title="Sign Out"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Sign Out</span>
             </button>
           </div>
 

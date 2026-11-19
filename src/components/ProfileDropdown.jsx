@@ -20,8 +20,11 @@ export default function ProfileDropdown({ onClose, onNavigate }) {
   }, [onClose]);
 
   const handleSignOut = async () => {
-    onClose();
-    await signOut();
+    try {
+      await signOut();
+    } finally {
+      onClose();
+    }
   };
 
   const go = (page) => {
