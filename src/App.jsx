@@ -16,6 +16,7 @@ import StaffDashboard from './pages/staff/StaffDashboard';
 // Auth Pages
 import { LoginPage, SignupPage, ForgotPasswordPage } from './pages/auth/AuthPages';
 import AccountSettingsPage from './pages/auth/AccountSettingsPage';
+import MyProfilePage from './pages/MyProfilePage';
 
 // State and storage services
 import {
@@ -215,6 +216,10 @@ function AppInner() {
           <>
             {activePage === 'account-settings' && (
               <AccountSettingsPage onNavigate={handleNavigate} />
+            )}
+
+            {activePage === 'my-profile' && (
+              <MyProfilePage onNavigate={handleNavigate} />
             )}
 
             {/* ─── The 4 Core Student Pages ────────────────────────────── */}

@@ -277,8 +277,41 @@ export function AuthProvider({ children }) {
     if (!error && data) {
       setProfile(data);
     }
+
+    // Parse 7-day cooldown error from DB trigger
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('PROFILE_COOLDOWN_ACTIVE')) {
+        const dateMatch = msg.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/);
+        const nextAvailableDate = dateMatch ? dateMatch[0] : null;
+        return {
+          data: null,
+          error: { ...error, isCooldown: true, nextAvailableDate },
+        };
+      }
+    }
+
     return { data, error };
   };
+
+  // ── Profile Cooldown Helper ───────────────────────────────────────────────
+  const fetchProfileCooldown = useCallback(() => {
+    if (!profile) return { isLocked: false, nextAvailableDate: null, daysRemaining: 0 };
+    const lastUpdate = profile.last_profile_update;
+    if (!lastUpdate) return { isLocked: false, nextAvailableDate: null, daysRemaining: 0 };
+
+    const lastDate = new Date(lastUpdate);
+    const nextDate = new Date(lastDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+
+    if (now >= nextDate) {
+      return { isLocked: false, nextAvailableDate: null, daysRemaining: 0 };
+    }
+
+    const msRemaining = nextDate.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+    return { isLocked: true, nextAvailableDate: nextDate.toISOString(), daysRemaining };
+  }, [profile]);
 
   // ── Upload Profile Picture (Supabase Storage) ─────────────────────────────
   const uploadProfilePicture = async (file) => {
@@ -362,6 +395,7 @@ export function AuthProvider({ children }) {
     signOut,
     resetPassword,
     updateProfile,
+    fetchProfileCooldown,
     uploadProfilePicture,
     removeProfilePicture,
     refreshProfile: () => user && fetchProfile(user.id),
