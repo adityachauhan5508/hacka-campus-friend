@@ -4,8 +4,15 @@ import { CAMPUS_BUILDINGS } from '../data/campusBuildings';
 import { INITIAL_STAFF_ESCALATIONS, INITIAL_STUDENT_HISTORY } from '../data/initialHistory';
 import { getStoredDocuments, getStoredEscalations, getStoredHistory } from './storage';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = 
+  import.meta.env.VITE_SUPABASE_URL || 
+  import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 
+  '';
+const supabaseAnonKey = 
+  import.meta.env.VITE_SUPABASE_ANON_KEY || 
+  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+  import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
+  '';
 
 export const isSupabaseConfigured = () => {
   return Boolean(
